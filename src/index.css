@@ -1,0 +1,49 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-brand-primary: #3b82f6; /* blue-500 */
+  --color-brand-success: #10b981; /* emerald-500 */
+  --color-brand-warning: #f59e0b; /* amber-500 */
+  --color-brand-danger: #f43f5e; /* rose-500 */
+  
+  --color-surface-base: #f8fafc; /* slate-50 */
+  --color-surface-card: #ffffff;
+  --color-surface-sidebar: #1e293b; /* slate-800 */
+  
+  --color-border-subtle: #e2e8f0; /* slate-200 */
+  --color-text-main: #1e293b; /* slate-800 */
+  --color-text-muted: #64748b; /* slate-500 */
+
+  --hd-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+@layer base {
+  body {
+    @apply bg-surface-base text-text-main font-sans antialiased text-[13px];
+  }
+}
+
+@layer components {
+  .hd-card {
+    @apply bg-white border border-border-subtle rounded shadow-sm;
+  }
+  
+  .hd-button-primary {
+    @apply bg-brand-primary text-white px-4 py-2 rounded font-medium text-[12px] hover:bg-brand-primary/90 transition-colors flex items-center justify-center gap-2;
+  }
+
+  .hd-button-secondary {
+    @apply bg-white border border-border-subtle text-text-main px-4 py-2 rounded font-medium text-[12px] hover:bg-surface-base transition-colors flex items-center justify-center gap-2;
+  }
+
+  .hd-input {
+    @apply bg-white border border-border-subtle rounded px-3 py-2 text-[12px] focus:outline-none focus:ring-1 focus:ring-brand-primary/50 transition-all;
+  }
+
+  .hd-badge {
+    @apply px-2 py-0.5 rounded-full text-[11px] font-medium;
+  }
+}

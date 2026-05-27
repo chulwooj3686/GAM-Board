@@ -1,0 +1,199 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isFacilitator(roomCode) {
+      return isSignedIn() && exists(/databases/$(database)/documents/rooms/$(roomCode)/participants/$(request.auth.uid)) && get(/databases/$(database)/documents/rooms/$(roomCode)/participants/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Validation Blueprints
+    function isValidCard(data, isCreate) {
+      return data.keys().hasAll(['id', 'title', 'author', 'content', 'color', 'likes', 'timestamp', 'authorId', 'comments']) 
+             && data.keys().size() >= 9
+             && data.id is string && data.id.size() <= 100
+             && data.title is string && data.title.size() <= 150
+             && data.author is string && data.author.size() <= 50
+             && data.content is string && data.content.size() <= 2000
+             && data.color in ['yellow', 'pink', 'purple', 'cyan', 'green']
+             && data.likes is number
+             && data.timestamp is number
+             && (isCreate ? data.authorId == request.auth.uid : true)
+             && data.comments is list;
+    }
+
+    function isValidMessage(data) {
+      return data.keys().hasAll(['id', 'user', 'userId', 'text', 'type', 'timestamp'])
+             && data.keys().size() >= 6
+             && data.id is string && data.id.size() <= 100
+             && data.user is string && data.user.size() <= 50
+             && data.userId == request.auth.uid
+             && data.text is string && data.text.size() <= 1000
+             && data.type in ['chat', 'resource', 'file']
+             && data.timestamp is number;
+    }
+
+    function isValidParticipant(data) {
+      return data.keys().hasAll(['id', 'name', 'lastSeen', 'role'])
+             && data.keys().size() == 4
+             && data.id == request.auth.uid
+             && data.name is string && data.name.size() <= 50
+             && data.lastSeen is number
+             && data.role in ['admin', 'user'];
+    }
+
+    function isValidRoom(data) {
+      return data.keys().hasAll(['title'])
+             && data.title is string && data.title.size() <= 100
+             && (!data.keys().hasAll(['workspaceId']) || (data.workspaceId is string && data.workspaceId.size() <= 100))
+             && (!data.keys().hasAll(['type']) || data.type in ['single', 'workshop'])
+             && (!data.keys().hasAll(['template']) || data.template in ['brainstorm', 'canvas', 'procon', 'category', 'kanban', 'kpt', 'fourf', 'ninebox'])
+             && (!data.keys().hasAll(['skin']) || (data.skin is string && data.skin.size() <= 50))
+             && (!data.keys().hasAll(['locked']) || data.locked is bool)
+             && (!data.keys().hasAll(['pinnedAnnouncement']) || (data.pinnedAnnouncement is string && data.pinnedAnnouncement.size() <= 1000));
+    }
+
+    function isValidWorkspace(data) {
+      return data.keys().hasAll(['id', 'name', 'createdAt'])
+             && data.keys().size() == 3
+             && data.id is string && data.id.size() <= 100
+             && data.name is string && data.name.size() <= 100
+             && data.createdAt is number;
+    }
+
+    function isValidPoll(data) {
+      return data.keys().hasAll(['id', 'question', 'options', 'votes', 'active', 'timestamp'])
+             && data.keys().size() == 6
+             && data.id is string && data.id.size() <= 100
+             && data.question is string && data.question.size() <= 500
+             && data.options is list && data.options.size() <= 10
+             && data.votes is map
+             && data.active is bool
+             && data.timestamp is number;
+    }
+
+    function isValidQnA(data, isCreate) {
+      return data.keys().hasAll(['id', 'text', 'author', 'authorId', 'votes', 'votedUsers', 'answered', 'timestamp'])
+             && data.keys().size() == 8
+             && data.id is string && data.id.size() <= 100
+             && data.text is string && data.text.size() <= 1000
+             && data.author is string && data.author.size() <= 100
+             && (isCreate ? data.authorId == request.auth.uid : true)
+             && data.votes is number
+             && data.votedUsers is list
+             && data.answered is bool
+             && data.timestamp is number;
+    }
+
+    function isValidWordCloud(data) {
+      return data.keys().hasAll(['id', 'text', 'count', 'submittedBy'])
+             && data.keys().size() == 4
+             && data.id is string && data.id.size() <= 100
+             && data.text is string && data.text.size() <= 100
+             && data.count is number
+             && data.submittedBy is list;
+    }
+
+    // Workspaces Context
+    match /workspaces/{workspaceId} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSignedIn() && isValidWorkspace(incoming()) && isValidId(workspaceId);
+      allow update: if isSignedIn() && isValidWorkspace(incoming()) && isValidId(workspaceId);
+      allow delete: if isSignedIn();
+    }
+
+    // Room Context
+    match /rooms/{roomCode} {
+      allow list: if isSignedIn();
+      allow get: if isSignedIn();
+      allow create: if isSignedIn() && isValidRoom(incoming());
+      allow update: if isSignedIn() && (
+        isFacilitator(roomCode) || 
+        (incoming().diff(existing()).affectedKeys().hasOnly(['title']) && isValidRoom(incoming()))
+      );
+      allow delete: if isSignedIn();
+      
+      match /cards/{cardId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn();
+        
+        allow create: if isSignedIn() && isValidCard(incoming(), true) && isValidId(cardId);
+        
+        allow update: if isSignedIn() && isValidCard(incoming(), false) && (
+          isFacilitator(roomCode) ||
+          (existing().authorId == request.auth.uid && incoming().authorId == existing().authorId) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['likes']) && incoming().likes == existing().likes + 1) ||
+          (incoming().diff(existing()).affectedKeys().hasOnly(['comments']) && incoming().comments.size() > existing().comments.size())
+        );
+
+        allow delete: if isSignedIn() && (existing().authorId == request.auth.uid || isFacilitator(roomCode));
+      }
+
+      match /messages/{messageId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn();
+        allow create: if isSignedIn() && isValidMessage(incoming()) && isValidId(messageId);
+      }
+
+      match /participants/{participantId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn();
+        allow create, update: if isSignedIn() && isValidParticipant(incoming()) && participantId == request.auth.uid;
+        allow delete: if isSignedIn() && participantId == request.auth.uid;
+      }
+
+      match /polls/{pollId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn();
+        allow create: if isSignedIn() && isFacilitator(roomCode) && isValidPoll(incoming()) && isValidId(pollId);
+        allow update: if isSignedIn() && isValidPoll(incoming()) && (
+          isFacilitator(roomCode) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['votes'])
+        );
+        allow delete: if isSignedIn() && isFacilitator(roomCode);
+      }
+
+      match /qna/{qnaId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn();
+        allow create: if isSignedIn() && isValidQnA(incoming(), true) && isValidId(qnaId);
+        allow update: if isSignedIn() && isValidQnA(incoming(), false) && (
+          isFacilitator(roomCode) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['votes', 'votedUsers'])
+        );
+        allow delete: if isSignedIn() && isFacilitator(roomCode);
+      }
+
+      match /wordcloud/{wordId} {
+        allow list: if isSignedIn();
+        allow get: if isSignedIn();
+        allow create: if isSignedIn() && isValidWordCloud(incoming()) && isValidId(wordId);
+        allow update: if isSignedIn() && isValidWordCloud(incoming()) && (
+          incoming().diff(existing()).affectedKeys().hasOnly(['count', 'submittedBy'])
+        );
+        allow delete: if isSignedIn() && isFacilitator(roomCode);
+      }
+    }
+  }
+}

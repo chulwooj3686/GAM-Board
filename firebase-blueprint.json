@@ -1,0 +1,163 @@
+{
+  "entities": {
+    "Card": {
+      "title": "Board Card",
+      "description": "A collaborative post-it card with title, content and comments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "authorId": { "type": "string" },
+        "content": { "type": "string" },
+        "color": { "type": "string", "enum": ["yellow", "pink", "cyan", "green", "purple"] },
+        "likes": { "type": "number" },
+        "comments": { 
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "author": { "type": "string" },
+              "authorId": { "type": "string" },
+              "text": { "type": "string" },
+              "timestamp": { "type": "number" }
+            }
+          }
+        },
+        "timestamp": { "type": "number", "format": "timestamp" }
+      },
+      "required": ["id", "title", "author", "content", "color", "likes", "timestamp", "authorId"]
+    },
+    "Message": {
+      "title": "Chat Message",
+      "description": "A message in the room with support for links and files",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user": { "type": "string" },
+        "userId": { "type": "string" },
+        "text": { "type": "string" },
+        "type": { "type": "string", "enum": ["chat", "resource", "file"] },
+        "link": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": "string" },
+        "timestamp": { "type": "number", "format": "timestamp" }
+      },
+      "required": ["id", "user", "userId", "text", "type", "timestamp"]
+    },
+    "Participant": {
+      "title": "Room Participant",
+      "description": "A user currently in the session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "lastSeen": { "type": "number", "format": "timestamp" }
+      },
+      "required": ["id", "name", "lastSeen"]
+    },
+    "Workspace": {
+      "title": "Workspace Group",
+      "description": "A group holding multiple coaching boards",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "number", "format": "timestamp" }
+      },
+      "required": ["id", "name", "createdAt"]
+    },
+    "Room": {
+      "title": "Coaching Board Room",
+      "description": "A session board belonging to a workspace",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "workspaceId": { "type": "string" },
+        "type": { "type": "string", "enum": ["single", "workshop"] },
+        "template": { "type": "string", "enum": ["brainstorm", "canvas", "procon", "category", "kanban", "kpt", "fourf", "ninebox"] },
+        "skin": { "type": "string" },
+        "locked": { "type": "boolean" },
+        "pinnedAnnouncement": { "type": "string" }
+      },
+      "required": ["title", "workspaceId", "type", "template", "skin", "locked"]
+    },
+    "SlidoPoll": {
+      "title": "Slido Poll",
+      "description": "A live interactive poll",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "question": { "type": "string" },
+        "options": { "type": "array", "items": { "type": "string" } },
+        "votes": { "type": "object" },
+        "active": { "type": "boolean" },
+        "timestamp": { "type": "number", "format": "timestamp" }
+      },
+      "required": ["id", "question", "options", "votes", "active", "timestamp"]
+    },
+    "QnAQuestion": {
+      "title": "Slido Qna Question",
+      "description": "A live Qna question submitted by users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "author": { "type": "string" },
+        "authorId": { "type": "string" },
+        "votes": { "type": "number" },
+        "votedUsers": { "type": "array", "items": { "type": "string" } },
+        "answered": { "type": "boolean" },
+        "timestamp": { "type": "number", "format": "timestamp" }
+      },
+      "required": ["id", "text", "author", "authorId", "votes", "votedUsers", "answered", "timestamp"]
+    },
+    "WordCloudItem": {
+      "title": "Slido Word Cloud Item",
+      "description": "A single word submission in the word cloud",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "count": { "type": "number" },
+        "submittedBy": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["id", "text", "count", "submittedBy"]
+    }
+  },
+  "firestore": {
+    "workspaces/{workspaceId}": {
+      "schema": "Workspace",
+      "description": "Workspace groups"
+    },
+    "rooms/{roomCode}": {
+      "schema": "Room",
+      "description": "Coaching board room metadata"
+    },
+    "rooms/{roomCode}/cards": {
+      "schema": "Card",
+      "description": "Cards in a specific room"
+    },
+    "rooms/{roomCode}/messages": {
+      "schema": "Message",
+      "description": "Messages in a specific room"
+    },
+    "rooms/{roomCode}/participants": {
+      "schema": "Participant",
+      "description": "Active users in a specific room"
+    },
+    "rooms/{roomCode}/polls": {
+      "schema": "SlidoPoll",
+      "description": "Polls in a specific room"
+    },
+    "rooms/{roomCode}/qna": {
+      "schema": "QnAQuestion",
+      "description": "Q&A channels in a specific room"
+    },
+    "rooms/{roomCode}/wordcloud": {
+      "schema": "WordCloudItem",
+      "description": "Word cloud words in a specific room"
+    }
+  }
+}
